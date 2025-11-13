@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Data files - keep structure but ignore content
+data/jobs/*.json
+data/jobs/*.lock
+data/dlq/*.json
+data/dlq/*.lock
+data/logs/*.log
+data/workers/*.pid
+data/metrics.json
+
+# But keep the directories
+!data/jobs/.gitkeep
+!data/dlq/.gitkeep
+!data/logs/.gitkeep
+!data/workers/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.backup
