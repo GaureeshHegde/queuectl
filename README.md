@@ -1,451 +1,198 @@
 # QueueCTL - Background Job Queue System
 
-A production-ready CLI-based background job queue system with worker processes, retry mechanism using exponential backoff, Dead Letter Queue (DLQ), and advanced features including job scheduling, output logging, and metrics tracking.
+A CLI-based background job queue system with worker processes, retry mechanism using exponential backoff, and Dead Letter Queue (DLQ).
 
-## 🚀 Features
+## Features
 
 ### Mandatory Features
-- ✅ **Job Queue Management** - Enqueue and manage background jobs via CLI
-- ✅ **Multiple Parallel Workers** - Run multiple worker processes concurrently
-- ✅ **Automatic Retries** - Exponential backoff retry mechanism for failed jobs
-- ✅ **Dead Letter Queue (DLQ)** - Permanent storage for jobs that exhausted retries
-- ✅ **Persistent Storage** - Jobs survive system restarts (file-based with locking)
-- ✅ **Configuration Management** - Non-hardcoded, user-configurable settings
-- ✅ **Job Timeout** - 5-minute timeout for long-running jobs
+- Job queue management via CLI
+- Multiple parallel workers
+- Automatic retry with exponential backoff
+- Dead Letter Queue (DLQ) for failed jobs
+- Persistent storage with file locking
+- Configurable settings (non-hardcoded)
 
 ### Bonus Features
-- 🎁 **Job Output Logging** - Capture STDOUT/STDERR for all jobs
-- 🎁 **Scheduled/Delayed Jobs** - Schedule jobs for future execution
-- 🎁 **Metrics & Statistics** - Track execution metrics and worker performance
-- 🎁 **Comprehensive CLI** - Rich command-line interface with status, logs, and config management
+- Job output logging (capture STDOUT/STDERR)
+- Scheduled/delayed jobs
+- Metrics and execution statistics
+- Job timeout (5 minutes)
 
-## 📋 Table of Contents
+## Installation
 
-- [Architecture](#architecture)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Usage Guide](#usage-guide)
-- [Configuration](#configuration)
-- [Testing](#testing)
-- [Project Structure](#project-structure)
-
-## 🏗️ Architecture
-
-### Components
-
-┌─────────────────────────────────────────────────────────┐
-│ CLI Layer │
-│ (enqueue, worker, status, list, logs, dlq, config) │
-└────────────────────┬────────────────────────────────────┘
-│
-┌────────────────────▼────────────────────────────────────┐
-│ Queue Manager │
-│ - Job state management │
-│ - Retry logic with exponential backoff │
-│ - DLQ operations │
-└────────────────────┬────────────────────────────────────┘
-│
-┌────────────────────▼────────────────────────────────────┐
-│ Storage Layer │
-│ - File-based persistence (JSON) │
-│ - File locking (prevents race conditions) │
-│ - Atomic operations │
-└─────────────────────────────────────────────────────────┘
-
-text
-    ┌──────────────┐      ┌──────────────┐
-    │  Worker 1    │      │  Worker 2    │  ...
-    │  (Process)   │      │  (Process)   │
-    └──────────────┘      └──────────────┘
-text
-
-### Job Lifecycle
-
-ENQUEUE → PENDING → PROCESSING → COMPLETED
-↓
-FAILED (retry)
-↓
-(exponential backoff)
-↓
-DEAD (moved to DLQ)
-
-text
-
-### Retry Mechanism
-
-Failed jobs are automatically retried with **exponential backoff**:
-
-- **Formula**: `delay = backoff_base ^ attempts` seconds
-- **Default**: `backoff_base = 2`, `max_retries = 3`
-- **Example timeline**:
-  - 1st retry: wait 2¹ = 2 seconds
-  - 2nd retry: wait 2² = 4 seconds
-  - 3rd retry: wait 2³ = 8 seconds
-  - After 3 retries → moved to Dead Letter Queue
-
-## 📦 Installation
-
-### Prerequisites
-
-- Python 3.7 or higher
-- pip
-- Virtual environment (recommended)
-
-### Setup
-
-Clone the repository
-git clone <repository-url>
+Clone repository
+git clone https://github.com/GaureeshHegde/queuectl.git
 cd queuectl
 
 Create virtual environment
 python3 -m venv venv
-source venv/bin/activate # On Windows: venv\Scripts\activate
+source venv/bin/activate
 
-Install in development mode
+Install
 pip install -e .
 
-Verify installation
+Verify
 queuectl --help
 
-text
 
-## 🚀 Quick Start
+## Quick Start
 
-1. Start workers (3 parallel workers)
+Start workers
 queuectl worker start --count 3
 
-2. Enqueue some jobs
+Enqueue jobs
 queuectl enqueue '{"command":"echo Hello World"}'
 queuectl enqueue '{"command":"date"}'
-queuectl enqueue '{"command":"sleep 5 && echo Done"}'
 
-3. Check queue status
+Check status
 queuectl status
 
-4. List completed jobs
+List jobs
 queuectl list --state completed
 
-5. View job output
+View logs
 queuectl logs <job-id>
 
-6. Stop workers
+Stop workers
 queuectl worker stop
 
-text
 
-## 📖 Usage Guide
+## Usage
 
 ### Job Management
 
-#### Enqueue a Job
-
-Basic job
+**Enqueue a job:**
 queuectl enqueue '{"command":"echo test"}'
 
-Job with custom retry settings
-queuectl enqueue '{"command":"./my-script.sh", "max_retries": 5}'
 
-Scheduled job (runs after 30 seconds)
-queuectl enqueue '{"command":"echo Scheduled"}' --run-at "+30s"
-
-Scheduled job with specific time
+**Schedule a job:**
+queuectl enqueue '{"command":"backup.sh"}' --run-at "+30s"
 queuectl enqueue '{"command":"backup.sh"}' --run-at "2024-01-15T14:30:00"
 
-text
 
-#### List Jobs
-
-List all jobs
+**List jobs:**
 queuectl list
-
-Filter by state
 queuectl list --state pending
 queuectl list --state completed
-queuectl list --state failed
-queuectl list --state processing
 
-text
 
-#### View Job Output (Bonus Feature)
-
-View logs for a specific job
+**View job output:**
 queuectl logs <job-id>
 
-Example output:
-=== Job Output ===
-Command: echo Hello World
-Return Code: 0
-Success: True
-=== STDOUT ===
-Hello World
-=== STDERR ===
-text
 
-#### Check Queue Status
-
+**Check queue status:**
 queuectl status
 
-Output:
-Queue Status:
-==================================================
-Job Counts by State:
-● Pending 5
-○ Processing 2
-● Completed 150
-○ Failed 0
-○ Dead 1
-Dead Letter Queue: 1 jobs
-Active Workers: 3
-text
 
 ### Worker Management
 
-#### Start Workers
+**Start workers:**
+queuectl worker start # Single worker
+queuectl worker start --count 5 # Multiple workers
 
-Start single worker
-queuectl worker start
 
-Start multiple workers (recommended)
-queuectl worker start --count 5
-
-Workers run as separate background processes
-text
-
-#### Stop Workers
-
-Stop all workers gracefully
+**Stop workers:**
 queuectl worker stop
 
-Workers complete current jobs before stopping
-text
 
-### Dead Letter Queue (DLQ)
+### Dead Letter Queue
 
-List jobs in DLQ
+**List DLQ jobs:**
 queuectl dlq list
 
-Retry a specific job from DLQ
+
+**Retry a job from DLQ:**
 queuectl dlq retry <job-id>
 
-Clear entire DLQ
+
+**Clear DLQ:**
 queuectl dlq clear
 
-text
 
-### Configuration Management
+### Configuration
 
-Configuration is **NOT hardcoded** and can be modified at runtime:
+Configuration is stored in `data/config/settings.json` and can be modified:
 
-View current configuration
 queuectl config show
-
-Update max retries
 queuectl config set max-retries 5
-
-Update backoff base
 queuectl config set backoff-base 3
 
-Settings persist to data/config/settings.json
-text
 
-### Metrics & Statistics (Bonus Feature)
+**Configuration options:**
+- `max_retries`: Maximum retry attempts (default: 3)
+- `backoff_base`: Base for exponential backoff (default: 2)
+- `worker_poll_interval`: Worker polling interval in seconds (default: 1)
+- `job_timeout`: Job execution timeout in seconds (default: 300)
 
-View execution metrics
+### Metrics
+
+View execution statistics:
+
 queuectl metrics
-
-Output:
-Execution Metrics
-============================================================
-Overall Statistics:
-Total Jobs Processed: 150
-Completed Successfully: 148
-Failed: 2
-Success Rate: 98.67%
-Failure Rate: 1.33%
-Execution Time:
-Average per Job: 2.34s
-Total Execution Time: 351.23s
-Worker Statistics:
-worker_1:
-Jobs Processed: 50
-Completed: 50
-Failed: 0
-worker_2:
-Jobs Processed: 52
-Completed: 51
-Failed: 1
-Reset metrics
 queuectl metrics --reset
 
-text
 
-## ⚙️ Configuration
+## Retry Mechanism
 
-Configuration file: `data/config/settings.json`
+Failed jobs are retried with exponential backoff:
+- Formula: `delay = backoff_base ^ attempts` seconds
+- Example with default settings (base=2, max_retries=3):
+  - 1st retry: wait 2 seconds
+  - 2nd retry: wait 4 seconds
+  - 3rd retry: wait 8 seconds
+  - After 3 retries: moved to DLQ
 
-{
-"max_retries": 3,
-"backoff_base": 2,
-"worker_poll_interval": 1,
-"job_timeout": 300
-}
+## Testing
 
-text
+Run the comprehensive test suite:
 
-### Configuration Options
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `max_retries` | 3 | Maximum retry attempts before moving to DLQ |
-| `backoff_base` | 2 | Base for exponential backoff calculation |
-| `worker_poll_interval` | 1 | Worker polling interval (seconds) |
-| `job_timeout` | 300 | Job execution timeout (seconds) |
-
-## 🧪 Testing
-
-### Run Comprehensive Test Suite
-
-Run all tests (mandatory + bonus features)
 bash test_queuectl.sh
 
-Expected output:
-======== MANDATORY FEATURES TEST ========
-[PASS] Job enqueueing works
-[PASS] Config NOT hardcoded
-[PASS] File locking implemented
-[PASS] Jobs persist to disk
-[PASS] Multiple workers work (3 workers)
-[PASS] Retry and DLQ work
-======== BONUS FEATURES TEST ========
-[PASS] Output logging works (BONUS)
-[PASS] Scheduled jobs work (BONUS)
-[PASS] Metrics work (BONUS)
-======== TEST SUMMARY ========
-Total: 9
-Passed: 9
-Failed: 0
-✓ ALL TESTS PASSED!
-text
 
-### Manual Testing Examples
+The test script verifies:
+- All mandatory features
+- Bonus features
+- Concurrent execution
+- Retry mechanism
+- Configuration persistence
+- File locking
 
-Test 1: Parallel execution
-queuectl worker start --count 3
-queuectl enqueue '{"command":"sleep 5 && echo Job 1"}'
-queuectl enqueue '{"command":"sleep 5 && echo Job 2"}'
-queuectl enqueue '{"command":"sleep 5 && echo Job 3"}'
-
-All 3 should complete in ~5s, not 15s
-Test 2: Retry mechanism
-queuectl worker start
-queuectl enqueue '{"command":"exit 1"}'
-
-Wait 20s, check DLQ: queuectl dlq list
-Test 3: Scheduled jobs
-queuectl worker start
-queuectl enqueue '{"command":"echo Future"}' --run-at "+10s"
-
-Job won't execute immediately
-Test 4: Persistence
-queuectl enqueue '{"command":"echo test"}'
-
-Restart terminal/system
-queuectl list --state pending # Job still exists
-
-queuectl worker stop
-
-text
-
-## 📁 Project Structure
+## Project Structure
 
 queuectl/
 ├── queuectl/
-│ ├── init.py
-│ ├── cli/
-│ │ ├── init.py
-│ │ ├── parser.py # CLI argument parsing
-│ │ └── commands.py # Command handlers
-│ ├── core/
-│ │ ├── init.py
-│ │ ├── job.py # Job model and states
-│ │ ├── queue.py # Queue management logic
-│ │ └── worker.py # Worker process implementation
-│ ├── storage/
-│ │ ├── init.py
-│ │ └── file_store.py # File-based persistence with locking
-│ └── metrics.py # Metrics tracking (bonus feature)
+│ ├── cli/ # CLI interface
+│ ├── core/ # Job, queue, and worker logic
+│ ├── storage/ # File-based persistence
+│ └── metrics.py # Metrics tracking
 ├── data/
-│ ├── jobs/ # Job state files (*.json)
+│ ├── jobs/ # Job state files
 │ ├── dlq/ # Dead letter queue
-│ ├── logs/ # Job output logs (bonus feature)
-│ ├── config/ # Configuration files
-│ └── workers/ # Worker PID files
-├── setup.py # Package configuration
-├── README.md # This file
-├── test_queuectl.sh # Comprehensive test script
-└── .gitignore
+│ ├── logs/ # Job output logs
+│ └── config/ # Configuration
+├── setup.py
+├── README.md
+└── test_queuectl.sh
 
-text
 
-## 🔒 Thread Safety & Race Conditions
+## How It Works
 
-The system uses **file-based locking** (via `filelock` library) to prevent race conditions:
+1. Jobs are enqueued and stored as JSON files in `data/jobs/`
+2. Workers poll the queue and process pending jobs
+3. Failed jobs are retried with exponential backoff
+4. Jobs that exhaust retries are moved to DLQ
+5. File locking prevents race conditions between workers
+6. Job output is captured in `data/logs/`
 
-- ✅ Multiple workers can safely read/write jobs
-- ✅ Atomic job state transitions
-- ✅ No job processed twice
-- ✅ Safe concurrent enqueue operations
+## Requirements
 
-## 🎯 Design Decisions
+- Python 3.7+
+- filelock library (for thread-safe operations)
 
-1. **File-based Storage**: Simple, portable, survives restarts
-2. **Separate Worker Processes**: True parallelism, isolation, easy monitoring
-3. **Exponential Backoff**: Prevents overwhelming failed services
-4. **DLQ Pattern**: Industry-standard approach for failed jobs
-5. **CLI-first**: Simple deployment, no web server required
+## License
 
-## 🐛 Troubleshooting
+Created as part of a technical assessment.
 
-### Workers not processing jobs
+## Author
 
-Check if workers are running
-ps aux | grep queuectl.core.worker
-
-Check worker logs
-queuectl status
-
-Restart workers
-queuectl worker stop
-queuectl worker start
-
-text
-
-### Jobs stuck in pending state
-
-Check if scheduled time has passed (for scheduled jobs)
-queuectl list --state pending
-
-Start workers if none running
-queuectl worker start
-
-text
-
-### Configuration not persisting
-
-Verify config file exists and is writable
-cat data/config/settings.json
-
-Re-apply configuration
-queuectl config set max-retries 3
-
-text
-
-## 📝 License
-
-This project is created as part of a technical assessment.
-
-## 👤 Author
-
-Gaureesh
-
----
+Gaureesh Hegde
